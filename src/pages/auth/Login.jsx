@@ -42,11 +42,9 @@ export default function AddSuggestion() {
     }
   }, [authUser, isLoading]);
 
-  if (isLoading) {
-    return <Loading />;
-  }
-
-  return (
+  return isLoading || (!isLoading && !!authUser) ? (
+    <Loading />
+  ) : (
     <Container component='main' maxWidth='xs'>
       <Box
         sx={{

@@ -19,7 +19,5 @@ export default function AuthGuard({ children }) {
     authUser,
   });
 
-  if (isLoading) return <Loading />;
-
-  return <Box>{children}</Box>;
+  return !authUser ? <Loading /> : <Box>{children}</Box>;
 }

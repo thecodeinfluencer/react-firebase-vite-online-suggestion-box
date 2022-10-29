@@ -14,10 +14,18 @@ import { uploadImage } from '../../firebase/storage';
 import { saveSuggestion } from '../../firebase/firestore';
 import { Form, FormikButton, FormikInput } from '../../formik';
 import { useSnackbar } from 'notistack';
+import { useState } from 'react';
+import * as Yup from 'yup';
+
+const validator = Yup.object().shape({
+  subject: Yup.string().required('Subject is required'),
+  description: Yup.string().required('Description is required'),
+});
 
 export default function AddSuggestion() {
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [imageBlob, setImageBlob] = useState({});
 
   const { authUser } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
@@ -27,33 +35,34 @@ export default function AddSuggestion() {
     setLoading(false);
   };
 
-  const handleSubmit = async (
-    { image, subject, description },
-    { resetForm }
-  ) => {
+  const handleSubmit = async ({ subject, description }, { resetForm }) => {
     setLoading(true);
     setError(null);
-    await uploadImage(image, authUser?.uid || `images`)
-      .then(imageURL => {
-        console.log('uploaded', {
-          imageURL,
-          subject,
-          description,
+
+    const saveWithImage = imageURL =>
+      saveSuggestion({
+        imageURL,
+        subject,
+        description,
+        date: Date.now(),
+      })
+        .then(() => {
+          setLoading(false);
+          enqueueSnackbar('Suggestion saved', { variant: 'success' });
+          resetForm();
+        })
+        .catch(err => {
+          setStateError(err);
         });
 
-        saveSuggestion({
-          imageURL: `${imageURL}`,
-          subject,
-          description,
-        })
-          .then(() => {
-            setLoading(false);
-            enqueueSnackbar('Suggestion saved', { variant: 'success' });
-            resetForm();
-          })
-          .catch(err => {
-            setStateError(err);
-          });
+    if (!imageBlob) {
+      saveWithImage('https://via.placeholder.com/50');
+      return;
+    }
+
+    await uploadImage(imageBlob[0], authUser?.uid || `images`)
+      .then(imageURL => {
+        saveWithImage(imageURL);
       })
       .catch(err => {
         setStateError(err);
@@ -80,17 +89,19 @@ export default function AddSuggestion() {
         </Typography>
         <Form
           onSubmit={handleSubmit}
+          validationSchema={validator}
           initialValues={{
             image: '',
-            subject: '',
-            description: '',
+            subject: 'Your company HQ',
+            description:
+              'Please move your HQ to a more central place so that more people can access your services',
           }}
           sx={{ mt: 1 }}
         >
           <FormikInput
             required
             fullWidth
-            label='Subject Matter'
+            label='Subject'
             name='subject'
             autoFocus
           />
@@ -110,6 +121,7 @@ export default function AddSuggestion() {
             name='image'
             accept='image/*'
             type='file'
+            onSelectFiles={setImageBlob}
           />
           {error && (
             <Alert sx={{ my: 2 }} severity='error'>
